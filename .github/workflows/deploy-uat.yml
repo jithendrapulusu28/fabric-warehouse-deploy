@@ -1,0 +1,45 @@
+name: Deploy Warehouse Schema to UAT
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "datawarehouse_test.Warehouse/**"
+      - ".github/workflows/deploy-uat.yml"
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\datawarehouse_test.Warehouse\datawarehouse_test.sqlproj
+
+      - name: Build DACPAC
+        shell: pwsh
+        run: dotnet build .\datawarehouse_test.Warehouse\datawarehouse_test.sqlproj -c Release --no-restore
+
+      - name: Install SqlPackage
+        shell: pwsh
+        run: dotnet tool install --global microsoft.sqlpackage
+
+      - name: Publish to UAT
+        shell: pwsh
+        run: |
+          $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
+          & $sqlPackage `
+            /Action:Publish `
+            /SourceFile:"$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse\bin\Release\datawarehouse_test.dacpac" `
+            /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
+            /p:DropObjectsNotInSource=False `
+            /p:AllowIncompatiblePlatform=True
