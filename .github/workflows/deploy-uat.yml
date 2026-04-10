@@ -32,6 +32,24 @@ jobs:
       - name: Install SqlPackage
         shell: pwsh
         run: dotnet tool install --global microsoft.sqlpackage
+      
+      - name: Generate deployment preview script
+        shell: pwsh
+        run: |
+          $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
+          & $sqlPackage `
+            /Action:Script `
+            /SourceFile:"$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse\bin\Release\datawarehouse_test.dacpac" `
+            /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
+            /OutputPath:"$env:GITHUB_WORKSPACE\deploy-preview.sql" `
+            /p:DropObjectsNotInSource=False `
+            /p:BlockOnPossibleDataLoss=True `
+            /p:AllowIncompatiblePlatform=True
+      - name: Upload preview script
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-preview
+          path: deploy-preview.sql
 
       - name: Publish to UAT
         shell: pwsh
