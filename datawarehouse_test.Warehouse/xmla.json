@@ -885,20 +885,6 @@
             ]
           },
           {
-            "name": "OrderSource",
-            "dataType": "string",
-            "sourceColumn": "OrderSource",
-            "sourceProviderType": "varchar",
-            "sourceLineageTag": "OrderSource",
-            "summarizeBy": "none",
-            "annotations": [
-              {
-                "name": "SummarizationSetBy",
-                "value": "Automatic"
-              }
-            ]
-          },
-          {
             "name": "OrderChannel",
             "dataType": "string",
             "sourceColumn": "OrderChannel",
