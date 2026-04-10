@@ -1,5 +1,5 @@
 <Project DefaultTargets="Build">
-  <Sdk Name="Microsoft.Build.Sql" Version="0.1.19-preview" />
+<Sdk Name="Microsoft.Build.Sql" Version="2.1.0" />
   <PropertyGroup>
     <Name>datawarehouse_test</Name>
     <DSP>Microsoft.Data.Tools.Schema.Sql.SqlDwUnifiedDatabaseSchemaProvider</DSP>
