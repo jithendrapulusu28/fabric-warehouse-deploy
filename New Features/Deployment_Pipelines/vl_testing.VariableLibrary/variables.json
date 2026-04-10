@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/variables/1.0.0/schema.json",
+  "variables": [
+    {
+      "name": "lk_id",
+      "note": "",
+      "type": "String",
+      "value": "e644539e-7f7e-4dba-a490-b3adadd06a44"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/valueSet/1.0.0/schema.json",
+  "name": "UAT",
+  "variableOverrides": [
+    {
+      "name": "lk_id",
+      "value": "877a7b47-9000-4332-854d-67d733b6d845"
+    }
+  ]
+}

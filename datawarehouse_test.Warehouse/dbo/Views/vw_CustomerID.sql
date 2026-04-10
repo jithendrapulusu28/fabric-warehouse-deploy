@@ -1,0 +1,4 @@
+-- Auto Generated (Do not modify) 25D077643C5AC645CADA83CE510F913A8506A41D832E4510046CEEFE7148F689
+CREATE VIEW vw_CustomerID AS
+SELECT * from [WH_Testing].[dbo].[Fact_Sales]
+WHERE CustomerID = 101

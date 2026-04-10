@@ -1,0 +1,59 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "ExecuteSSISPackage",
+        "typeProperties": {
+          "packageLocation": {
+            "packagePath": "SSIS/Lesson 1.dtsx",
+            "type": "File",
+            "typeProperties": {
+              "connectionSettings": {
+                "name": "LK_temp",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "33b6d845-67d7-854d-4332-9000877a7b47",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  },
+                  "annotations": []
+                },
+                "objectId": "877a7b47-9000-4332-854d-67d733b6d845"
+              }
+            }
+          },
+          "loggingLevel": "Basic",
+          "logLocation": {
+            "logPath": "SSIS",
+            "type": "File",
+            "typeProperties": {
+              "connectionSettings": {
+                "name": "LK_temp",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "33b6d845-67d7-854d-4332-9000877a7b47",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  },
+                  "annotations": []
+                },
+                "objectId": "877a7b47-9000-4332-854d-67d733b6d845"
+              }
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Invoke SSIS package1",
+        "dependsOn": []
+      }
+    ]
+  }
+}
