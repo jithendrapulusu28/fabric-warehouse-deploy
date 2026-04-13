@@ -1,12 +1,28 @@
 name: Deploy Selected Warehouse Objects to UAT
 
 on:
+  workflow_call:
+    inputs:
+      selected_objects:
+        description: "Comma-separated SQL object files relative to datawarehouse_test.Warehouse (example: dbo/Tables/Orders.sql)"
+        required: true
+        type: string
+      block_on_data_loss:
+        description: "Block if data loss is detected"
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch:
     inputs:
       selected_objects:
-        description: "Comma-separated SQL object files (example: dbo/Tables/Orders.sql,dbo/StoredProcedures/sp_SampleProcedure.sql)"
+        description: "Comma-separated SQL object files relative to datawarehouse_test.Warehouse (example: dbo/Tables/Orders.sql)"
         required: true
         type: string
+      block_on_data_loss:
+        description: "Block if data loss is detected"
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   deploy:
@@ -28,14 +44,18 @@ jobs:
       - name: Create temp SQL project from selected objects
         shell: pwsh
         run: |
-          $raw = "${{ github.event.inputs.selected_objects }}"
-          $files = $raw.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+          $raw = "${{ inputs.selected_objects }}"
+          $files = $raw.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" } | Select-Object -Unique
 
-          if ($files.Count -eq 0) { throw "No selected objects were provided." }
+          if ($files.Count -eq 0) {
+            throw "No selected objects were provided."
+          }
 
           foreach ($f in $files) {
             $full = Join-Path "$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse" $f
-            if (-not (Test-Path $full)) { throw "Selected file not found: $f" }
+            if (-not (Test-Path $full)) {
+              throw "Selected file not found: $f"
+            }
           }
 
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\selected-build" -Force | Out-Null
@@ -64,7 +84,7 @@ jobs:
       - name: Build DACPAC
         shell: pwsh
         run: dotnet build "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj" -c Release --no-restore
-      
+
       - name: Locate DACPAC
         shell: pwsh
         run: |
@@ -72,13 +92,12 @@ jobs:
           if (-not $dacpac) {
             throw "No DACPAC found in selected-build\bin\Release"
           }
-          Write-Host "Found DACPAC: $($dacpac.FullName)"
           "DACPAC_PATH=$($dacpac.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
 
       - name: Generate deployment preview script
         shell: pwsh
         run: |
+          $blockOnDataLoss = "${{ inputs.block_on_data_loss }}"
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Script `
@@ -86,7 +105,7 @@ jobs:
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /OutputPath:"$env:GITHUB_WORKSPACE\deploy-preview.sql" `
             /p:DropObjectsNotInSource=False `
-            /p:BlockOnPossibleDataLoss=True `
+            /p:BlockOnPossibleDataLoss:$blockOnDataLoss `
             /p:AllowIncompatiblePlatform=True
 
       - name: Upload preview script
@@ -98,11 +117,12 @@ jobs:
       - name: Publish to UAT
         shell: pwsh
         run: |
+          $blockOnDataLoss = "${{ inputs.block_on_data_loss }}"
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Publish `
             /SourceFile:"${{ env.DACPAC_PATH }}" `
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /p:DropObjectsNotInSource=False `
-            /p:BlockOnPossibleDataLoss=True `
+            /p:BlockOnPossibleDataLoss:$blockOnDataLoss `
             /p:AllowIncompatiblePlatform=True
