@@ -31,22 +31,31 @@ jobs:
           $raw = "${{ github.event.inputs.selected_objects }}"
           $files = $raw.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
 
-          if ($files.Count -eq 0) {
-            throw "No selected objects were provided."
-          }
+          if ($files.Count -eq 0) { throw "No selected objects were provided." }
 
           foreach ($f in $files) {
             $full = Join-Path "$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse" $f
-            if (-not (Test-Path $full)) {
-              throw "Selected file not found: $f"
-            }
+            if (-not (Test-Path $full)) { throw "Selected file not found: $f" }
           }
 
           New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\selected-build" -Force | Out-Null
 
-          $buildItems = ($files | ForEach-Object { "    <Build Include=""..\datawarehouse_test.Warehouse\$_"" />" }) -join "`n"
+          $lines = @()
+          $lines += '<Project DefaultTargets="Build">'
+          $lines += '  <Sdk Name="Microsoft.Build.Sql" Version="2.1.0" />'
+          $lines += '  <PropertyGroup>'
+          $lines += '    <Name>selected_deploy</Name>'
+          $lines += '    <DSP>Microsoft.Data.Tools.Schema.Sql.SqlDwUnifiedDatabaseSchemaProvider</DSP>'
+          $lines += '    <DefaultCollation>Latin1_General_100_BIN2_UTF8</DefaultCollation>'
+          $lines += '  </PropertyGroup>'
+          $lines += '  <ItemGroup>'
+          foreach ($f in $files) {
+            $lines += "    <Build Include=""..\datawarehouse_test.Warehouse\$f"" />"
+          }
+          $lines += '  </ItemGroup>'
+          $lines += '</Project>'
 
-          @"<Project DefaultTargets="Build"><Sdk Name="Microsoft.Build.Sql" Version="2.1.0" /><PropertyGroup><Name>selected_deploy</Name><DSP>Microsoft.Data.Tools.Schema.Sql.SqlDwUnifiedDatabaseSchemaProvider</DSP><DefaultCollation>Latin1_General_100_BIN2_UTF8</DefaultCollation></PropertyGroup><ItemGroup>$buildItems</ItemGroup></Project>"@ | Set-Content -Path "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj"
+          $lines -join "`r`n" | Set-Content -Path "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj" -Encoding utf8
 
       - name: Restore
         shell: pwsh
