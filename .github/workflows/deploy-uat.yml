@@ -64,6 +64,17 @@ jobs:
       - name: Build DACPAC
         shell: pwsh
         run: dotnet build "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj" -c Release --no-restore
+      
+      - name: Locate DACPAC
+        shell: pwsh
+        run: |
+          $dacpac = Get-ChildItem "$env:GITHUB_WORKSPACE\selected-build\bin\Release" -Filter *.dacpac -Recurse | Select-Object -First 1
+          if (-not $dacpac) {
+            throw "No DACPAC found in selected-build\bin\Release"
+          }
+          Write-Host "Found DACPAC: $($dacpac.FullName)"
+          "DACPAC_PATH=$($dacpac.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
 
       - name: Generate deployment preview script
         shell: pwsh
@@ -71,7 +82,7 @@ jobs:
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Script `
-            /SourceFile:"$env:GITHUB_WORKSPACE\selected-build\bin\Release\selected_deploy.dacpac" `
+            /SourceFile:"${{ env.DACPAC_PATH }}" `
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /OutputPath:"$env:GITHUB_WORKSPACE\deploy-preview.sql" `
             /p:DropObjectsNotInSource=False `
@@ -90,7 +101,7 @@ jobs:
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Publish `
-            /SourceFile:"$env:GITHUB_WORKSPACE\selected-build\bin\Release\selected_deploy.dacpac" `
+            /SourceFile:"${{ env.DACPAC_PATH }}" `
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /p:DropObjectsNotInSource=False `
             /p:BlockOnPossibleDataLoss=True `
