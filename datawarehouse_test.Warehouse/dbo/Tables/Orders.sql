@@ -8,6 +8,5 @@ CREATE TABLE [dbo].[Orders] (
 	[UnitPrice] decimal(10,2) NOT NULL, 
 	[TotalAmount] decimal(12,2) NULL, 
 	[Region] varchar(50) NULL, 
-	[Status] varchar(20) NULL, 
-	[OrderChannel] varchar(30) NULL
+	[Status] varchar(20) NULL
 );

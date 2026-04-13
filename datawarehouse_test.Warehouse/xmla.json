@@ -883,20 +883,6 @@
                 "value": "Automatic"
               }
             ]
-          },
-          {
-            "name": "OrderChannel",
-            "dataType": "string",
-            "sourceColumn": "OrderChannel",
-            "sourceProviderType": "varchar",
-            "sourceLineageTag": "OrderChannel",
-            "summarizeBy": "none",
-            "annotations": [
-              {
-                "name": "SummarizationSetBy",
-                "value": "Automatic"
-              }
-            ]
           }
         ],
         "partitions": [
