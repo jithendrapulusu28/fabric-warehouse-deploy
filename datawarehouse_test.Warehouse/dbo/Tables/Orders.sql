@@ -9,6 +9,5 @@ CREATE TABLE [dbo].[Orders] (
 	[TotalAmount] decimal(12,2) NULL, 
 	[Region] varchar(50) NULL, 
 	[Status] varchar(20) NULL, 
-	[OrderSource] varchar(30) NULL, 
 	[OrderChannel] varchar(30) NULL
 );
