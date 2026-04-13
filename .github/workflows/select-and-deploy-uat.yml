@@ -1,0 +1,44 @@
+name: Select Changed Objects And Deploy to UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      block_on_data_loss:
+        description: "Block if data loss is detected"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  detect:
+    runs-on: windows-latest
+    outputs:
+      selected_objects: ${{ steps.pick.outputs.selected_objects }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed SQL objects from latest commit
+        id: pick
+        shell: pwsh
+        run: |
+          $changed = git diff --name-only HEAD~1 HEAD -- datawarehouse_test.Warehouse/dbo/**/*.sql
+          if (-not $changed) {
+            throw "No changed SQL objects found in latest commit under datawarehouse_test.Warehouse/dbo."
+          }
+
+          $selected = @($changed | ForEach-Object { $_ -replace '^datawarehouse_test\.Warehouse/', '' } | Sort-Object -Unique)
+          $selectedCsv = $selected -join ","
+          Write-Host "Selected objects: $selectedCsv"
+          "selected_objects=$selectedCsv" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+  deploy:
+    needs: detect
+    uses: ./.github/workflows/deploy-uat.yml
+    with:
+      selected_objects: ${{ needs.detect.outputs.selected_objects }}
+      block_on_data_loss: ${{ inputs.block_on_data_loss }}
+    secrets: inherit
