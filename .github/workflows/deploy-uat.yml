@@ -1,12 +1,12 @@
-name: Deploy Warehouse Schema to UAT
+name: Deploy Selected Warehouse Objects to UAT
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "datawarehouse_test.Warehouse/**"
-      - ".github/workflows/deploy-uat.yml"
+    inputs:
+      selected_objects:
+        description: "Comma-separated SQL object files (example: dbo/Tables/Orders.sql,dbo/StoredProcedures/sp_SampleProcedure.sql)"
+        required: true
+        type: string
 
 jobs:
   deploy:
@@ -19,32 +19,56 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
-
-      - name: Restore
-        shell: pwsh
-        run: dotnet restore .\datawarehouse_test.Warehouse\datawarehouse_test.sqlproj
-
-      - name: Build DACPAC
-        shell: pwsh
-        run: dotnet build .\datawarehouse_test.Warehouse\datawarehouse_test.sqlproj -c Release --no-restore
+          dotnet-version: "8.0.x"
 
       - name: Install SqlPackage
         shell: pwsh
         run: dotnet tool install --global microsoft.sqlpackage
-      
+
+      - name: Create temp SQL project from selected objects
+        shell: pwsh
+        run: |
+          $raw = "${{ github.event.inputs.selected_objects }}"
+          $files = $raw.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+
+          if ($files.Count -eq 0) {
+            throw "No selected objects were provided."
+          }
+
+          foreach ($f in $files) {
+            $full = Join-Path "$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse" $f
+            if (-not (Test-Path $full)) {
+              throw "Selected file not found: $f"
+            }
+          }
+
+          New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\selected-build" -Force | Out-Null
+
+          $buildItems = ($files | ForEach-Object { "    <Build Include=""..\datawarehouse_test.Warehouse\$_"" />" }) -join "`n"
+
+          @"<Project DefaultTargets="Build"><Sdk Name="Microsoft.Build.Sql" Version="2.1.0" /><PropertyGroup><Name>selected_deploy</Name><DSP>Microsoft.Data.Tools.Schema.Sql.SqlDwUnifiedDatabaseSchemaProvider</DSP><DefaultCollation>Latin1_General_100_BIN2_UTF8</DefaultCollation></PropertyGroup><ItemGroup>$buildItems</ItemGroup></Project>"@ | Set-Content -Path "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj"
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj"
+
+      - name: Build DACPAC
+        shell: pwsh
+        run: dotnet build "$env:GITHUB_WORKSPACE\selected-build\selected.sqlproj" -c Release --no-restore
+
       - name: Generate deployment preview script
         shell: pwsh
         run: |
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Script `
-            /SourceFile:"$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse\bin\Release\datawarehouse_test.dacpac" `
+            /SourceFile:"$env:GITHUB_WORKSPACE\selected-build\bin\Release\selected_deploy.dacpac" `
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /OutputPath:"$env:GITHUB_WORKSPACE\deploy-preview.sql" `
             /p:DropObjectsNotInSource=False `
             /p:BlockOnPossibleDataLoss=True `
             /p:AllowIncompatiblePlatform=True
+
       - name: Upload preview script
         uses: actions/upload-artifact@v4
         with:
@@ -57,7 +81,8 @@ jobs:
           $sqlPackage = "$env:USERPROFILE\.dotnet\tools\sqlpackage.exe"
           & $sqlPackage `
             /Action:Publish `
-            /SourceFile:"$env:GITHUB_WORKSPACE\datawarehouse_test.Warehouse\bin\Release\datawarehouse_test.dacpac" `
+            /SourceFile:"$env:GITHUB_WORKSPACE\selected-build\bin\Release\selected_deploy.dacpac" `
             /TargetConnectionString:"Data Source=tcp:${{ secrets.UAT_FABRIC_SQL_ENDPOINT }},1433;Initial Catalog=${{ secrets.UAT_WAREHOUSE_NAME }};Authentication=Active Directory Service Principal;User ID=${{ secrets.AZURE_CLIENT_ID }};Password=${{ secrets.AZURE_CLIENT_SECRET }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" `
             /p:DropObjectsNotInSource=False `
+            /p:BlockOnPossibleDataLoss=True `
             /p:AllowIncompatiblePlatform=True
